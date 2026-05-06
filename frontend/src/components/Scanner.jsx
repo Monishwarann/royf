@@ -29,75 +29,93 @@ const Scanner = ({ user }) => {
     };
   }, [location.search, user]);
 
+  const scannerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop().catch(err => console.error("Cleanup error:", err));
+      }
+    };
+  }, []);
+
   const startCamera = async () => {
     setError(null);
-    try {
-      // 1. Specify all supported formats for maximum detection accuracy
-      const formatsToSupport = [
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.CODE_93,
-        Html5QrcodeSupportedFormats.ITF,
-        Html5QrcodeSupportedFormats.QR_CODE,
-        Html5QrcodeSupportedFormats.DATA_MATRIX,
-        Html5QrcodeSupportedFormats.PDF_417
-      ];
+    setCameraActive(true); // Must show the div first
+    
+    // Give React time to render the #reader element
+    setTimeout(async () => {
+      try {
+        const formatsToSupport = [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_93,
+          Html5QrcodeSupportedFormats.ITF,
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.DATA_MATRIX,
+          Html5QrcodeSupportedFormats.PDF_417
+        ];
 
-      const html5QrCode = new Html5Qrcode("reader", { formatsToSupport });
-      scannerRef.current = html5QrCode;
-      
-      const config = { 
-        fps: 25, 
-        qrbox: (viewfinderWidth, viewfinderHeight) => {
-          // Dynamic box sizing for different screens
-          const width = Math.min(viewfinderWidth * 0.85, 450);
-          const height = Math.min(viewfinderHeight * 0.35, 250);
-          return { width, height };
-        },
-        aspectRatio: 1.0,
-        // Request high resolution for better 1D barcode detection
-        videoConstraints: {
-          facingMode: "environment",
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+        const readerElement = document.getElementById("reader");
+        if (!readerElement) {
+          throw new Error("Scanner initialization failed. Element not found.");
         }
-      };
 
-      await html5QrCode.start(
-        { facingMode: "environment" }, 
-        config, 
-        (decodedText) => {
-          if (navigator.vibrate) navigator.vibrate(120);
-          stopCamera();
-          handleScan(decodedText);
-        }, 
-        () => {} // Silent on scan failures
-      );
+        const html5QrCode = new Html5Qrcode("reader", { formatsToSupport });
+        scannerRef.current = html5QrCode;
+        
+        const config = { 
+          fps: 25, 
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const width = Math.min(viewfinderWidth * 0.85, 450);
+            const height = Math.min(viewfinderHeight * 0.35, 250);
+            return { width, height };
+          },
+          aspectRatio: 1.0,
+          videoConstraints: {
+            facingMode: "environment",
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        };
 
-      setCameraActive(true);
-      
-      // Check for torch capability
-      const track = html5QrCode.getRunningTrack();
-      if (track && track.getCapabilities) {
-        const capabilities = track.getCapabilities();
-        setHasTorch(!!capabilities.torch);
+        await html5QrCode.start(
+          { facingMode: "environment" }, 
+          config, 
+          (decodedText) => {
+            if (navigator.vibrate) navigator.vibrate(120);
+            stopCamera();
+            handleScan(decodedText);
+          }, 
+          () => {} // Silent scan failure
+        );
+
+        // Check for torch capability
+        try {
+          const track = html5QrCode.getRunningTrack ? html5QrCode.getRunningTrack() : null;
+          if (track && track.getCapabilities) {
+            const capabilities = track.getCapabilities();
+            setHasTorch(!!capabilities.torch);
+          }
+        } catch (e) {
+          console.warn("Torch capability check failed:", e);
+        }
+
+      } catch (err) {
+        console.error("[Scanner] Camera error:", err);
+        setCameraActive(false);
+        const errorMsg = err.message || err.toString();
+        if (errorMsg.includes("NotAllowedError") || errorMsg.includes("Permission denied")) {
+          setError("Camera permission denied. Please allow access in settings.");
+        } else {
+          setError(`Camera error: ${errorMsg}`);
+        }
       }
-
-    } catch (err) {
-      console.error("[Scanner] Camera error:", err);
-      const errorMsg = err.message || err.toString();
-      if (errorMsg.includes("NotAllowedError") || errorMsg.includes("Permission denied")) {
-        setError("Camera permission denied. Please enable camera access in your browser settings and refresh.");
-      } else if (errorMsg.includes("NotFoundError") || errorMsg.includes("Device not found")) {
-        setError("No camera detected on this device. Please ensure your camera is connected.");
-      } else {
-        setError(`Could not access camera: ${errorMsg}. Ensure you are using HTTPS and have granted permissions.`);
-      }
-    }
+    }, 150);
   };
 
   const toggleTorch = async () => {
@@ -117,13 +135,18 @@ const Scanner = ({ user }) => {
   const stopCamera = async () => {
     if (scannerRef.current) {
       try {
-        await scannerRef.current.stop();
-        setCameraActive(false);
-        setTorchOn(false);
+        if (scannerRef.current.isScanning) {
+          await scannerRef.current.stop();
+        }
       } catch (err) {
         console.error("Stop error:", err);
       }
+      scannerRef.current = null;
     }
+    setCameraActive(false);
+    setIsScanning(false);
+    setTorchOn(false);
+    setHasTorch(false);
   };
 
   const handleFileUpload = async (e) => {
