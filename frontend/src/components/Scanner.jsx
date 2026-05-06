@@ -29,15 +29,6 @@ const Scanner = ({ user }) => {
     };
   }, [location.search, user]);
 
-  const scannerRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (scannerRef.current && scannerRef.current.isScanning) {
-        scannerRef.current.stop().catch(err => console.error("Cleanup error:", err));
-      }
-    };
-  }, []);
 
   const startCamera = async () => {
     setError(null);
