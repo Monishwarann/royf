@@ -62,8 +62,8 @@ const Scanner = ({ user }) => {
         // Request high resolution for better 1D barcode detection
         videoConstraints: {
           facingMode: "environment",
-          width: { min: 1280, ideal: 1920 },
-          height: { min: 720, ideal: 1080 }
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         }
       };
 
