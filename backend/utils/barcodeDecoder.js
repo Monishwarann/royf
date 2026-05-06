@@ -33,10 +33,10 @@ class BarcodeDecoder {
         this.reader.setHints(this.hints);
     }
 
-    async decode(imagePath) {
-        console.log(`[BarcodeDecoder] Intensive decoding started for: ${imagePath}`);
+    async decode(imageSource) {
+        console.log(`[BarcodeDecoder] Intensive decoding started...`);
         try {
-            const originalImage = await Jimp.read(imagePath);
+            const originalImage = await Jimp.read(imageSource);
             
             // Define processing pipelines - ordered by most likely to succeed
             const pipelines = [

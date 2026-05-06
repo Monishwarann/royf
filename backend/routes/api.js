@@ -6,12 +6,12 @@ const path = require('path');
 const fs = require('fs');
 const barcodeDecoder = require('../utils/barcodeDecoder');
 
-// Configure Multer for temporary uploads
-const uploadDir = process.env.VERCEL ? '/tmp' : 'uploads/';
-if (!fs.existsSync(uploadDir) && !process.env.VERCEL) {
-  fs.mkdirSync(uploadDir);
-}
-const upload = multer({ dest: uploadDir });
+// Configure Multer for in-memory processing (works on Vercel & Local)
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
 
 // Simple in-memory cache for scans
 const scanCache = new Map();
@@ -137,17 +137,12 @@ router.post('/scan-image', upload.single('image'), async (req, res) => {
     return res.status(400).json({ message: 'No image file provided' });
   }
 
-    const { allergies, diet } = req.body;
-    const imagePath = req.file.path;
-
   try {
-    console.log(`[ImageScan] Processing uploaded file: ${req.file.originalname}`);
+    const { allergies, diet } = req.body;
+    console.log(`[ImageScan] Processing buffer from: ${req.file.originalname}`);
     
-    // 1. Decode barcode from image
-    const barcode = await barcodeDecoder.decode(imagePath);
-    
-    // Cleanup the uploaded file
-    fs.unlinkSync(imagePath);
+    // 1. Decode barcode from memory buffer
+    const barcode = await barcodeDecoder.decode(req.file.buffer);
 
     if (!barcode) {
       return res.status(422).json({ message: 'No clear barcode detected in the image.' });
@@ -217,7 +212,6 @@ router.post('/scan-image', upload.single('image'), async (req, res) => {
 
   } catch (error) {
     console.error('Image Scan Error:', error.message);
-    if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
     res.status(500).json({ message: 'Error processing image scan', details: error.message });
   }
 });
