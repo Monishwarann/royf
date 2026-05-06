@@ -13,10 +13,13 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@zxing/library": "^0.23.0",
     "axios": "^1.15.2",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "jimp": "^1.6.1",
+    "multer": "^2.1.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

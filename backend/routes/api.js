@@ -1,15 +1,38 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const barcodeDecoder = require('../utils/barcodeDecoder');
+
+// Configure Multer for temporary uploads
+const upload = multer({ dest: 'uploads/' });
+
+// Simple in-memory cache for scans
+const scanCache = new Map();
+const CACHE_TTL = 1000 * 60 * 60; // 1 hour
 
 // Get product data and check safety
 router.get('/scan/:barcode', async (req, res) => {
   const { barcode } = req.params;
   const { allergies } = req.query; // Allergies passed as a comma-separated string from frontend
+  const cacheKey = `${barcode}_${allergies || 'none'}`;
+
+  // Check cache first
+  if (scanCache.has(cacheKey)) {
+    const cached = scanCache.get(cacheKey);
+    if (Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log(`[Cache Hit] Serving scan result for: ${barcode}`);
+      return res.json(cached.data);
+    }
+    scanCache.delete(cacheKey);
+  }
 
   try {
     // 1. Fetch product from Open Food Facts
-    const offUrl = `https://world.openfoodfacts.org/api/v2/product/${barcode}.json`;
+    const fields = 'product_name,brands,image_url,ingredients_text,ingredients_text_en,ingredients_text_with_allergens,allergens_tags,status';
+    const offUrl = `https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=${fields}`;
     const response = await axios.get(offUrl, {
       headers: {
         'User-Agent': 'TrustBite - Web - Version 1.0 - https://trustbite.example.com'
@@ -50,7 +73,7 @@ router.get('/scan/:barcode', async (req, res) => {
 
     const isSafe = unsafeIngredients.length === 0;
 
-    res.json({
+    const result = {
       product: {
         name: product.product_name,
         brand: product.brands,
@@ -63,7 +86,21 @@ router.get('/scan/:barcode', async (req, res) => {
         unsafeIngredients,
         message: isSafe ? 'Safe for you!' : `Warning: Contains ${unsafeIngredients.join(', ')}`
       }
+    };
+
+    // Store in cache
+    scanCache.set(cacheKey, {
+      timestamp: Date.now(),
+      data: result
     });
+
+    // Cleanup cache if it gets too large
+    if (scanCache.size > 500) {
+      const firstKey = scanCache.keys().next().value;
+      scanCache.delete(firstKey);
+    }
+
+    res.json(result);
 
     } catch (error) {
       console.error('Scan Error:', error.response?.data || error.message);
@@ -73,4 +110,81 @@ router.get('/scan/:barcode', async (req, res) => {
       });
     }
 });
+
+// Scan from uploaded image
+router.post('/scan-image', upload.single('image'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: 'No image file provided' });
+  }
+
+  const { allergies } = req.body;
+  const imagePath = req.file.path;
+
+  try {
+    console.log(`[ImageScan] Processing uploaded file: ${req.file.originalname}`);
+    
+    // 1. Decode barcode from image
+    const barcode = await barcodeDecoder.decode(imagePath);
+    
+    // Cleanup the uploaded file
+    fs.unlinkSync(imagePath);
+
+    if (!barcode) {
+      return res.status(422).json({ message: 'No clear barcode detected in the image.' });
+    }
+
+    console.log(`[ImageScan] Detected barcode: ${barcode}`);
+
+    // 2. Reuse the scan logic by redirecting or calling a helper
+    // For now, let's just fetch the product directly as we do in the GET route
+    const fields = 'product_name,brands,image_url,ingredients_text,ingredients_text_en,ingredients_text_with_allergens,allergens_tags,status';
+    const offUrl = `https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=${fields}`;
+    
+    const response = await axios.get(offUrl, {
+      headers: { 'User-Agent': 'TrustBite - Web - Version 1.0' }
+    });
+
+    if (response.data.status === 0) {
+      return res.status(404).json({ message: 'Product not found in Open Food Facts' });
+    }
+
+    const product = response.data.product;
+    const ingredientsText = product.ingredients_text || product.ingredients_text_en || 'No ingredients available.';
+    const allergensTags = product.allergens_tags || [];
+    const userAllergies = allergies ? allergies.split(',') : [];
+
+    let unsafeIngredients = [];
+    userAllergies.forEach(allergy => {
+      if (!allergy) return;
+      const regex = new RegExp(allergy, 'i');
+      if (regex.test(ingredientsText)) unsafeIngredients.push(allergy);
+      const tagMatch = allergensTags.some(tag => tag.toLowerCase().includes(allergy.toLowerCase()));
+      if (tagMatch && !unsafeIngredients.includes(allergy)) unsafeIngredients.push(allergy);
+    });
+
+    const isSafe = unsafeIngredients.length === 0;
+
+    res.json({
+      product: {
+        name: product.product_name,
+        brand: product.brands,
+        image: product.image_url,
+        ingredients: ingredientsText,
+        allergens: allergensTags,
+        barcode: barcode
+      },
+      safety: {
+        isSafe,
+        unsafeIngredients,
+        message: isSafe ? 'Safe for you!' : `Warning: Contains ${unsafeIngredients.join(', ')}`
+      }
+    });
+
+  } catch (error) {
+    console.error('Image Scan Error:', error.message);
+    if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+    res.status(500).json({ message: 'Error processing image scan', details: error.message });
+  }
+});
+
 module.exports = router;

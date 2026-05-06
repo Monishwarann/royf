@@ -14,12 +14,12 @@ const Dashboard = ({ user }) => {
   const stats = [
     { label: 'Total Scans', value: history.length, icon: <History className="text-primary" /> },
     { label: 'Safety Rating', value: 'High', icon: <ShieldCheck className="text-success" /> },
-    { label: 'Allergies', value: user?.allergies.length || 0, icon: <HeartPulse className="text-danger" /> }
+    { label: 'Allergies', value: user?.allergies?.length || 0, icon: <HeartPulse className="text-danger" /> }
   ];
 
   return (
     <div className="dashboard-view">
-      <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem', fontWeight: 800 }}>Hey, {user?.name.split(' ')[0]}!</h1>
+      <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem', fontWeight: 800 }}>Hey, {user?.name?.split(' ')[0] || 'User'}!</h1>
       <p className="text-muted" style={{ marginBottom: '2.5rem' }}>Check your food safety instantly.</p>
 
       <div className="dashboard-grid">

@@ -1,36 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { Scan, User, LayoutDashboard, Settings, Bell, Clock } from 'lucide-react';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Dashboard from './components/Dashboard';
 import Scanner from './components/Scanner';
 import Profile from './components/Profile';
 import History from './components/History';
+import Login from './components/Login';
 
-function App() {
-  const [currentUser, setCurrentUser] = useState(null);
+const ProtectedRoute = ({ children }) => {
+  const { currentUser } = useAuth();
+  if (!currentUser) {
+    return <Navigate to="/login" />;
+  }
+  return children;
+};
 
-  useEffect(() => {
-    // Check for user in localStorage or create a default session
-    const savedUser = localStorage.getItem('trustbite_user');
-    if (savedUser) {
-      setCurrentUser(JSON.parse(savedUser));
-    } else {
-      // Default placeholder user for demo
-      const demoUser = {
-        _id: 'demo_123',
-        name: 'Guest User',
-        email: 'guest@example.com',
-        allergies: ['peanuts', 'milk'],
-        conditions: ['diabetes']
-      };
-      setCurrentUser(demoUser);
-      localStorage.setItem('trustbite_user', JSON.stringify(demoUser));
-    }
-  }, []);
+function AppContent() {
+  const { currentUser } = useAuth();
+  const location = useLocation();
+  const isAuthPage = location.pathname === '/login';
 
   return (
-    <Router>
-      <div className="app-container">
+    <div className={`app-container ${isAuthPage ? 'auth-layout' : ''}`}>
+      {!isAuthPage && (
         <header>
           <div className="logo">
             <div style={{ 
@@ -48,19 +41,46 @@ function App() {
             <Bell className="text-muted" size={20} />
           </div>
         </header>
+      )}
 
-        <main>
-          <Routes>
-            <Route path="/" element={<Dashboard user={currentUser} />} />
-            <Route path="/scan" element={<Scanner user={currentUser} />} />
-            <Route path="/history" element={<History />} />
-            <Route path="/profile" element={<Profile user={currentUser} setUser={setCurrentUser} />} />
-          </Routes>
-        </main>
+      <main>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Dashboard user={currentUser} />
+            </ProtectedRoute>
+          } />
+          <Route path="/scan" element={
+            <ProtectedRoute>
+              <Scanner user={currentUser} />
+            </ProtectedRoute>
+          } />
+          <Route path="/history" element={
+            <ProtectedRoute>
+              <History />
+            </ProtectedRoute>
+          } />
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Profile user={currentUser} />
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </main>
 
-        <Navigation />
-      </div>
-    </Router>
+      {!isAuthPage && <Navigation />}
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <AppContent />
+      </Router>
+    </AuthProvider>
   );
 }
 
