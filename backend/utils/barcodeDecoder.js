@@ -7,7 +7,7 @@ const {
     HybridBinarizer,
     GlobalHistogramBinarizer 
 } = require('@zxing/library');
-const Jimp = require('jimp');
+const { Jimp } = require('jimp');
 const fs = require('fs');
 
 class BarcodeDecoder {

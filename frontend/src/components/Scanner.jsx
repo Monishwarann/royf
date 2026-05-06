@@ -132,6 +132,9 @@ const Scanner = ({ user }) => {
     if (user && user.allergies) {
       formData.append('allergies', user.allergies.join(','));
     }
+    if (user && user.diet) {
+      formData.append('diet', user.diet);
+    }
 
     try {
       if (cameraActive) await stopCamera();
@@ -159,7 +162,8 @@ const Scanner = ({ user }) => {
     setError(null);
     try {
       const allergyList = (user && user.allergies) ? user.allergies.join(',') : '';
-      const response = await axios.get(`/_/backend/scan/${barcode}?allergies=${allergyList}`);
+      const diet = (user && user.diet) ? user.diet : 'none';
+      const response = await axios.get(`/_/backend/scan/${barcode}?allergies=${allergyList}&diet=${diet}`);
       const data = response.data;
       
       if (!data.product || !data.product.name) {

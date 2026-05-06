@@ -40,6 +40,7 @@ export function AuthProvider({ children }) {
         email: email,
         allergies: [],
         conditions: [],
+        diet: 'none',
         createdAt: new Date().toISOString()
       };
 
@@ -124,6 +125,7 @@ export function AuthProvider({ children }) {
           phoneNumber: user.phoneNumber || "",
           allergies: [],
           conditions: [],
+          diet: 'none',
           createdAt: new Date().toISOString()
         };
         
@@ -170,7 +172,8 @@ export function AuthProvider({ children }) {
           name: firebaseUser.displayName || "User",
           phoneNumber: firebaseUser.phoneNumber || "",
           allergies: [],
-          conditions: []
+          conditions: [],
+          diet: 'none'
         };
         
         setCurrentUser(baseUser);
@@ -186,7 +189,8 @@ export function AuthProvider({ children }) {
               name: extraData.name || prev.name,
               phoneNumber: extraData.phoneNumber || prev.phoneNumber || "",
               allergies: extraData.allergies || [],
-              conditions: extraData.conditions || []
+              conditions: extraData.conditions || [],
+              diet: extraData.diet || 'none'
             }));
           }
         } catch (err) {

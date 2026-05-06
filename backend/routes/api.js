@@ -16,8 +16,8 @@ const CACHE_TTL = 1000 * 60 * 60; // 1 hour
 // Get product data and check safety
 router.get('/scan/:barcode', async (req, res) => {
   const { barcode } = req.params;
-  const { allergies } = req.query; // Allergies passed as a comma-separated string from frontend
-  const cacheKey = `${barcode}_${allergies || 'none'}`;
+  const { allergies, diet } = req.query; // Allergies and diet passed from frontend
+  const cacheKey = `${barcode}_${allergies || 'none'}_${diet || 'none'}`;
 
   // Check cache first
   if (scanCache.has(cacheKey)) {
@@ -71,6 +71,22 @@ router.get('/scan/:barcode', async (req, res) => {
       }
     });
 
+    // 4. Diet Check Logic
+    const dietRules = {
+      vegan: ['milk', 'egg', 'honey', 'meat', 'fish', 'poultry', 'dairy', 'cheese', 'butter', 'whey', 'casein', 'gelatin', 'lard'],
+      vegetarian: ['meat', 'fish', 'poultry', 'gelatin', 'lard'],
+      halal: ['pork', 'alcohol', 'wine', 'beer', 'lard', 'gelatin']
+    };
+
+    if (diet && dietRules[diet]) {
+      dietRules[diet].forEach(item => {
+        const regex = new RegExp(`\\b${item}\\b`, 'i');
+        if (regex.test(ingredientsText) && !unsafeIngredients.includes(item)) {
+          unsafeIngredients.push(`${item} (${diet})`);
+        }
+      });
+    }
+
     const isSafe = unsafeIngredients.length === 0;
 
     const result = {
@@ -117,8 +133,8 @@ router.post('/scan-image', upload.single('image'), async (req, res) => {
     return res.status(400).json({ message: 'No image file provided' });
   }
 
-  const { allergies } = req.body;
-  const imagePath = req.file.path;
+    const { allergies, diet } = req.body;
+    const imagePath = req.file.path;
 
   try {
     console.log(`[ImageScan] Processing uploaded file: ${req.file.originalname}`);
@@ -161,6 +177,21 @@ router.post('/scan-image', upload.single('image'), async (req, res) => {
       const tagMatch = allergensTags.some(tag => tag.toLowerCase().includes(allergy.toLowerCase()));
       if (tagMatch && !unsafeIngredients.includes(allergy)) unsafeIngredients.push(allergy);
     });
+
+    const dietRules = {
+      vegan: ['milk', 'egg', 'honey', 'meat', 'fish', 'poultry', 'dairy', 'cheese', 'butter', 'whey', 'casein', 'gelatin', 'lard'],
+      vegetarian: ['meat', 'fish', 'poultry', 'gelatin', 'lard'],
+      halal: ['pork', 'alcohol', 'wine', 'beer', 'lard', 'gelatin']
+    };
+
+    if (diet && dietRules[diet]) {
+      dietRules[diet].forEach(item => {
+        const regex = new RegExp(`\\b${item}\\b`, 'i');
+        if (regex.test(ingredientsText) && !unsafeIngredients.includes(item)) {
+          unsafeIngredients.push(`${item} (${diet})`);
+        }
+      });
+    }
 
     const isSafe = unsafeIngredients.length === 0;
 

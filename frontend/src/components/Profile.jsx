@@ -106,7 +106,7 @@ const Profile = ({ user }) => {
             <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Personal Information</h3>
           </div>
           {!editMode ? (
-            <button 
+            <button
               onClick={() => {
                 setTempName(user?.name || '');
                 setTempPhone(user?.phoneNumber || '');
@@ -118,7 +118,7 @@ const Profile = ({ user }) => {
               Edit
             </button>
           ) : (
-            <button 
+            <button
               onClick={() => setEditMode(false)}
               className="btn-link"
               style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700 }}
