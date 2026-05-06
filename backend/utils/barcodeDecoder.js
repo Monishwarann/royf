@@ -93,7 +93,7 @@ class BarcodeDecoder {
                 }
             }
 
-            console.log(`[BarcodeDecoder] All 20 attempts failed for: ${imagePath}`);
+            console.log(`[BarcodeDecoder] All 20 attempts failed.`);
             return null;
         } catch (error) {
             console.error(`[BarcodeDecoder] Fatal error: ${error.message}`);
