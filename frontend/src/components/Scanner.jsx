@@ -89,7 +89,14 @@ const Scanner = ({ user }) => {
 
     } catch (err) {
       console.error("[Scanner] Camera error:", err);
-      setError("Could not access camera. Ensure you've granted permissions and are using a secure (HTTPS) connection.");
+      const errorMsg = err.message || err.toString();
+      if (errorMsg.includes("NotAllowedError") || errorMsg.includes("Permission denied")) {
+        setError("Camera permission denied. Please enable camera access in your browser settings and refresh.");
+      } else if (errorMsg.includes("NotFoundError") || errorMsg.includes("Device not found")) {
+        setError("No camera detected on this device. Please ensure your camera is connected.");
+      } else {
+        setError(`Could not access camera: ${errorMsg}. Ensure you are using HTTPS and have granted permissions.`);
+      }
     }
   };
 
