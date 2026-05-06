@@ -32,8 +32,10 @@ app.get('/_/backend/health', (req, res) => {
   res.json({ status: 'ok', message: 'Backend is reachable' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
 
 module.exports = app;

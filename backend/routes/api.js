@@ -7,7 +7,11 @@ const fs = require('fs');
 const barcodeDecoder = require('../utils/barcodeDecoder');
 
 // Configure Multer for temporary uploads
-const upload = multer({ dest: 'uploads/' });
+const uploadDir = process.env.VERCEL ? '/tmp' : 'uploads/';
+if (!fs.existsSync(uploadDir) && !process.env.VERCEL) {
+  fs.mkdirSync(uploadDir);
+}
+const upload = multer({ dest: uploadDir });
 
 // Simple in-memory cache for scans
 const scanCache = new Map();
